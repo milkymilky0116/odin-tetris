@@ -3,6 +3,7 @@ package main
 import "base:runtime"
 import "core:fmt"
 import "core:math/rand"
+import "core:mem"
 import "core:time"
 import rl "vendor:raylib"
 SCREEN_WIDTH :: 500
@@ -19,6 +20,8 @@ EventTriggerd :: proc(interval: f64) -> bool {
 }
 
 main :: proc() {
+	track: mem.Tracking_Allocator
+	mem.tracking_allocator_init(&track, context.allocator)
 	seed := u64(time.now()._nsec)
 	state := rand.create(seed)
 	gen := runtime.default_random_generator(&state)
@@ -35,6 +38,15 @@ main :: proc() {
 	defer {
 		rl.CloseWindow()
 		Destroy(&game)
+		for _, entry in track.allocation_map {
+			fmt.eprintf("%v leaked %v bytes\n", entry.location, entry.size)
+		}
+
+		for entry in track.bad_free_array {
+			fmt.eprintf("%v bad free\n", entry.location)
+		}
+
+		mem.tracking_allocator_destroy(&track)
 	}
 
 	for !rl.WindowShouldClose() {
